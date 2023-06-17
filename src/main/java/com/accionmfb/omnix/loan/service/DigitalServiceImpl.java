@@ -1551,6 +1551,7 @@ public class DigitalServiceImpl implements DigitalService {
                 schedule.setRepaymentDate(dueMonth);
                 dueMonth = dueMonth.plusDays(30);
                 schedule.setMonths(String.valueOf(counter));
+                schedule.setLoanDisbursementId(loanRecord.getLoanDisbursementId());
                 schedule.setDisbursementAccount(loanRecord.getDisbursementAccount());
                 counter++;
                 double balance;
@@ -2510,9 +2511,6 @@ public class DigitalServiceImpl implements DigitalService {
                     loanItemDto.setLoanAmount(dataList.get(7));
                     loanItemDto.setBalance(dataList.get(10));
                     loanItemDto.setStatus(dataList.get(11));
-
-
-                    log.info("ORES PAYLOAD CANNOT BE NULL >>>>>>> {}", gson.toJson(loanItemDto));
                     // get past due amount
                     ofsMessage = "PD,/S/PROCESS," + userCredentials.split("\\/")[0] + "/" + userCredentials.split("\\/")[1] + "/,PD" + dataList.get(1);
                     String pdAmount = "0.00";
@@ -2521,15 +2519,13 @@ public class DigitalServiceImpl implements DigitalService {
                     try {
                         if (sResponse.contains("/1")) {
                             pdAmount = genericService.getOfsValue(sResponse, "TOTAL.AMT.TO.REPAY");
-
-
                         }
 
                     } catch (Exception e) {
                     }
+                    loanItemDto.setPastDueAmount(pdAmount);
                     oLoanItemDto[k] = loanItemDto;
                     k++;
-                    log.info("LOAN DETAILS {}", loanItemDto);
                 }
 
                 oResPayload.setLoanItemPayload(oLoanItemDto);

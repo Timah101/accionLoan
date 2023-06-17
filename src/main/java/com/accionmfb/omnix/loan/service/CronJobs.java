@@ -17,8 +17,7 @@ import java.math.BigDecimal;
 import java.text.ParseException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 import com.mashape.unirest.http.exceptions.UnirestException;
 import lombok.extern.slf4j.Slf4j;
@@ -639,22 +638,58 @@ public class CronJobs {
     }
 
 
-    //    @Scheduled(cron = "0 0 0 * * *") // Run at 12 AM every day
+//        @Scheduled(cron = "0 0 0,6,12,18 * * *") // Run at 12 AM every day
 
 
-//    @Scheduled(fixedRate = 5000)
+
+    @Scheduled(fixedRate = 50000)
     private void chargePaystackForRepaymentAfter3Days() throws UnirestException, ParseException {
+        // Get all Loans and update past due
+        DigitalActiveLoanRequestPayload digitalActiveLoanRequestPayload = new DigitalActiveLoanRequestPayload();
+        LocalDate currentDate = LocalDate.now();
+        List<Schedule> currentLoans = loanRepository.getScheduleByPastRepaymentDate(currentDate);
+        log.info("Total Loans Due today {}", currentLoans.size());
+        for(Schedule totalLoan: currentLoans){
+            log.info("Total Loans {}", totalLoan);
+            Loan loanUsingLoanId = loanRepository.getLoanUsingLoanId(totalLoan.getLoanId());
+            if(loanUsingLoanId != null){
+                // Get total schedule for the loan
+                loanRepository.getSchedule(totalLoan.getLoanId());
+                digitalActiveLoanRequestPayload.setRequestId(genericService.generateRequestId());
+                digitalActiveLoanRequestPayload.setMobileNumber(loanUsingLoanId.getMobileNumber());
+                String digitalActiveLoan = digitalService.processDigitalActiveLoan(token, digitalActiveLoanRequestPayload);
+                DigitalActiveLoanResponsePayload activeJson = gson.fromJson(digitalActiveLoan, DigitalActiveLoanResponsePayload.class);
+
+                //Search the Loan List and check if LD matches Savebrighta
+                for(DigitalLoanHistoryResponseList activeSet: activeJson.getLoanDetails()){
+                    log.info("Total Active Loans in the set inside this For Loop {}", gson.toJson(activeSet));
+                        if(activeSet.getLoanDisbursementId().equals(totalLoan.getLoanDisbursementId())){
+                            log.info("LOAN ID IS SAME INSIDE THE IF {}", activeSet.getLoanDisbursementId());
+                            //After checking LD matches, check if past due amount is not 0 and update to the past due amount
+                            if(!activeSet.getPastDueAmount().startsWith("0")){
+                                totalLoan.setPastDueAmount(activeSet.getPastDueAmount());
+                                loanRepository.updateSchedule(totalLoan);
+                                log.info("PAST DUE AMOUNT IS UPDATED INSIDE THE IF {}", activeSet.getPastDueAmount());
+                            }
+                        }
+                }
+
+                Set<String> activeSet = new HashSet<>(Collections.singletonList(digitalActiveLoan));
+
+                log.info("Total Loan in schedule {}", loanUsingLoanId);
+                log.info("Total Active Loans in the set {}", activeSet);
+                log.info("Total Active Loans in the Size {}", activeSet.size());
+            }
+
+        }
         LockAmountDto request = new LockAmountDto();
 
         request.setAccountNumber("9991030330");
         request.setAmount("500000");
-        log.info("lockdown amount payload {}", request);
+
 
         EarlyRepaymentRequestPayload requestPayload = new EarlyRepaymentRequestPayload();
-        LocalDate currentDate = LocalDate.now();
+
 
     }
-
-
-
 }

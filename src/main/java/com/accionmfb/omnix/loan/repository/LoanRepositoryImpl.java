@@ -570,9 +570,19 @@ public class LoanRepositoryImpl implements LoanRepository {
     }
 
     @Override
-    public List<Schedule> getScheduleByRepaymentDate(LocalDate repaymentDate){
-        TypedQuery<Schedule> query = em.createQuery("SELECT t FROM Schedule t where t.repaymentDate >= :repaymentDate", Schedule.class)
-                .setParameter("repaymentDate", repaymentDate);
+    public List<Schedule> getScheduleByRepaymentDate(LocalDate currentDate){
+        TypedQuery<Schedule> query = em.createQuery("SELECT t FROM Schedule t where t.repaymentDate >= :currentDate", Schedule.class)
+                .setParameter("currentDate", currentDate);
+        List<Schedule> record = query.getResultList();
+        if (record.isEmpty()) {
+            return null;
+        }
+        return record;
+    }
+    @Override
+    public List<Schedule> getScheduleByPastRepaymentDate(LocalDate currentDate){
+        TypedQuery<Schedule> query = em.createQuery("SELECT t FROM Schedule t where t.repaymentDate <= :currentDate", Schedule.class)
+                .setParameter("currentDate", currentDate);
         List<Schedule> record = query.getResultList();
         if (record.isEmpty()) {
             return null;

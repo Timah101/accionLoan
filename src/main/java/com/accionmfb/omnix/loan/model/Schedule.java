@@ -40,4 +40,6 @@ public class Schedule {
     private String paystackRef;
     @Column(name = "outstanding_balance")
     private String outstandingBalance;
+    @Column(name = "loan_disbursement_id")
+    private String loanDisbursementId;
 }

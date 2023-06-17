@@ -7,5 +7,5 @@ public class PaystackCardDetails {
     private String last4Digit;
     private boolean cardReusable;
     private String cardType;
-    private boolean paystackCardAvailable = false;
+    private boolean paystackCardAvailable;
 }

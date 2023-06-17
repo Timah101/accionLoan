@@ -121,7 +121,9 @@ public interface LoanRepository {
 
     public List<Schedule> getSchedule(String loanId);
 
-    public List<Schedule> getScheduleByRepaymentDate(LocalDate repaymentDate);
+    public List<Schedule> getScheduleByRepaymentDate(LocalDate currentDate);
+
+    public List<Schedule> getScheduleByPastRepaymentDate(LocalDate currentDate);
 
 
 
@@ -137,6 +139,8 @@ public interface LoanRepository {
 
 
     List<Loan> getAllLoanByStatus();
+
+
 
     PaystackDetails createPaystack (PaystackDetails paystackDetails);
 
