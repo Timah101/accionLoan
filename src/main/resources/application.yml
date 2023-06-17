@@ -1,0 +1,21 @@
+####### Accion Microfinance Bank - Omnix Loan #########
+server:
+    port: 1010
+    
+spring:
+    application:
+        name: omnix-loan
+    cloud:
+        config:
+            uri: http://omnix-config:8888
+#            uri: http://10.10.0.32:8888
+            name: config-server
+            
+eureka:
+    client:
+        registerWithEureka: true
+        fetchRegistry: true
+        
+omnix:
+    middleware:
+        active: /loan/checkExistingLoan

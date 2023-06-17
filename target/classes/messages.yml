@@ -1,0 +1,120 @@
+per######### Accion MfB Loan Microservice Global Messages ############
+---
+appMessages:
+    value:
+        invalid: The value supplied is invalid. Expecting {0}
+    branch:
+        noexist: No branch record exist with the branch code {0}
+    bvn:
+        notexist: The customer has no BVN record set
+        mismatch: The BVN from mono does not match the BVN in your account record
+        noBVN: There is no BVN attached to the account fetched from Mono
+    economic:
+        activity:
+            noexist: No record found matching the economic activity {0}
+    user:
+        notexist: The request is from an unknown user {0}
+    record:
+        loan:
+            empty: Loan list is empty.
+        digital:
+            loan:
+                empty: No Loan record found
+        artisan:
+            loan:
+                empty: No Artisan loan booked for renewal
+                renewed: Artisan Loan Type {0} Renewal for {1} successful. Amount renewed {2}
+    request:
+        processing: Your request is processing. Do not repeat without a check
+        hash:
+            failed: Bad request
+        sameid: A record with the Request ID {0} already exist
+        norole: You donot have permission to use this resource
+    customer:
+        account:
+            mismatch: The account number {0} belongs to another customer
+        number:
+            notexist: The customer record has no customer number (CIF) set
+        name:
+            mismatch: The names from {0} does not match names from {1}
+        noexist: No customer record found using the customer or mobile number {0}
+        mobile:
+            notexist: The customer record has no mobile number set
+            mismatch: The customer number and mobile number does not belong to the same customer
+            name:
+                mismatch: The mobile number {0} belongs to a customer with a different name from name supplied
+        imei:
+            invalid: Invalid IMEI
+    account:
+        numbering:
+            failed: Failed to generate account numbering for customer number {0}
+        list:
+            notexist: The customer has no account(s) record(s)
+        noprimary: Unable determine debit account for the transaction. Ensure primary account is set for the customer
+        notexist: No record found for the account number {0}
+        brighta:
+            commitment:
+                notexist: No Brighta Commitment Account found for customer
+    loan:
+        noexist: No loan setup found for the loan type {0}
+        exist: You currently have active loan(s) running. Kindly liquidate the loan(s) first
+        pending: You have a Pending, Authorized or Disbursed loan running already
+        outofrange: The loan amount is out of range {0} - {1}.
+        setupexist: Loan setup exist for the loan type {0}
+        same: Upper Limit of {0} must be greater than Lower Limit
+        setupsuccessful: Your Loan Setup was successful
+        declined: Sorry your loan request is declined. 
+        monoFailure: could not reach bank statement bank
+        indicinaFailure: Failure processing bank statement
+        amount:
+            greater: The loan amount is greater than the limit {0}
+        tenor:
+            greater: The loan tenor is greater than the limit {0}
+        record:
+            noexist: No loan record found matching the loan ID {0}
+            pending:
+                noexist: No pending records for {0} loans
+        offer:
+            invalid: The Offer Type {0} is invalid for the Search Type {1}
+        disbursement:
+            failed: The loan status {0} does not allow for disbursement
+        authorization:
+            failed: The loan status {0} does not allow for authorization
+        threshold:
+            outofrange: The {0} value set to {1}. Credit Bureau value is {2}
+        application:
+            failed: Sorry, you do not qualify for a digital loan
+        selection:
+            failed: The selection score {0} requires non-digital credit underwriting
+        not:
+            digital: This request is applicable only to Digital loan
+            pending: The loan status is {0} and cannot be processed further
+            artisan: This request is applicable only to Artisan loan
+            bau: The request is applicable only to BAU loan
+        option:
+            notexist: The loan option with Id {0} does not exist for loan Id {1}
+        customer:
+            mismatch: The loan with id {0} is not profiled for the customer with mobile number {1}
+    ip:
+        banned: Your IP is banned from accessing this resource
+    fallback:
+        callback: Unable to process loan request at this moment. Service will be back shortly - {0}
+        nocallback: The {0} have no callback service
+    rubyx:
+        loan:
+            renewal:
+                norecord: Dear Customer, Please be informed that you are not yet eligible for an automated loan renewal. Kindly call 07000222466 for details
+                creditbureau:
+                    notdone: The Credit Bureau for this customer has not been done
+                exist: A loan renewal request for customer number {0} with {1} rating and {2} score exist already
+                upload:
+                    success: The upload was successful
+                notexist: No loan renewal record exist for the {0} {1}
+                incomplete: The required loan details are incomplete. Current status is {0}. 
+                applied: You have applied for this loan renewal already
+                outofrange:
+                    amount: The loan amount cannot be above the limit of N{0}
+                    tenor: The tenor should be between 3-6 months
+    product:
+        notallowed: Only Brighta Plus account is acceptable. Account supplied category is {0}
+        
