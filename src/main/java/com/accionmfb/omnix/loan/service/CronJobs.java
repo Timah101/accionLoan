@@ -641,18 +641,22 @@ public class CronJobs {
 //        @Scheduled(cron = "0 0 0,6,12,18 * * *") // Run at 12 AM every day
 
 
-
-    @Scheduled(fixedRate = 50000)
-    private void chargePaystackForRepaymentAfter3Days() throws UnirestException, ParseException {
-        // Get all Loans and update past due
+//    @Scheduled(cron = "0 0 8 * * *") // Runs at 8 am every day
+    @Scheduled(fixedRate = 500000)
+    private void chargePaystackForRepaymentAfter3Days() {
+        // Get all Loans that are past the due date and update past due if delinquent
         DigitalActiveLoanRequestPayload digitalActiveLoanRequestPayload = new DigitalActiveLoanRequestPayload();
         LocalDate currentDate = LocalDate.now();
         List<Schedule> currentLoans = loanRepository.getScheduleByPastRepaymentDate(currentDate);
-        log.info("Total Loans Due today {}", currentLoans.size());
-        for(Schedule totalLoan: currentLoans){
-            log.info("Total Loans {}", totalLoan);
+        log.info("Total Loans schedules that have past their Repayment Date today {}", currentLoans.size());
+
+        // Iterate through total schedule and call active loan, then update the past due amount
+        for (Schedule totalLoan : currentLoans) {
+            log.info("Total Loan Schedule that are due {}", totalLoan);
+
+            //Get the Loan Records that are due
             Loan loanUsingLoanId = loanRepository.getLoanUsingLoanId(totalLoan.getLoanId());
-            if(loanUsingLoanId != null){
+            if (loanUsingLoanId != null) {
                 // Get total schedule for the loan
                 loanRepository.getSchedule(totalLoan.getLoanId());
                 digitalActiveLoanRequestPayload.setRequestId(genericService.generateRequestId());
@@ -661,24 +665,25 @@ public class CronJobs {
                 DigitalActiveLoanResponsePayload activeJson = gson.fromJson(digitalActiveLoan, DigitalActiveLoanResponsePayload.class);
 
                 //Search the Loan List and check if LD matches Savebrighta
-                for(DigitalLoanHistoryResponseList activeSet: activeJson.getLoanDetails()){
+                for (DigitalLoanHistoryResponseList activeSet : activeJson.getLoanDetails()) {
                     log.info("Total Active Loans in the set inside this For Loop {}", gson.toJson(activeSet));
-                        if(activeSet.getLoanDisbursementId().equals(totalLoan.getLoanDisbursementId())){
-                            log.info("LOAN ID IS SAME INSIDE THE IF {}", activeSet.getLoanDisbursementId());
-                            //After checking LD matches, check if past due amount is not 0 and update to the past due amount
-                            if(!activeSet.getPastDueAmount().startsWith("0")){
-                                totalLoan.setPastDueAmount(activeSet.getPastDueAmount());
-                                loanRepository.updateSchedule(totalLoan);
-                                log.info("PAST DUE AMOUNT IS UPDATED INSIDE THE IF {}", activeSet.getPastDueAmount());
-                            }
+                    if (activeSet.getLoanDisbursementId().equals(totalLoan.getLoanDisbursementId())) {
+                        log.info("LOAN ID IS SAME INSIDE THE IF {}", activeSet.getLoanDisbursementId());
+                        //After checking LD matches, check if past due amount is not 0 and update the status
+                            totalLoan.setPastDueAmount(activeSet.getPastDueAmount());
+                        if (!activeSet.getPastDueAmount().startsWith("0")) {
+                            totalLoan.setStatus("Delinquent");
+                            loanRepository.updateSchedule(totalLoan);
+                            log.info("PAST DUE AMOUNT IS UPDATED INSIDE THE IF {}", activeSet.getPastDueAmount());
                         }
+                        else{
+                            totalLoan.setPastDueAmount("0");
+                            totalLoan.setStatus("Paid");
+                            loanRepository.updateSchedule(totalLoan);
+                        }
+                    }
                 }
 
-                Set<String> activeSet = new HashSet<>(Collections.singletonList(digitalActiveLoan));
-
-                log.info("Total Loan in schedule {}", loanUsingLoanId);
-                log.info("Total Active Loans in the set {}", activeSet);
-                log.info("Total Active Loans in the Size {}", activeSet.size());
             }
 
         }

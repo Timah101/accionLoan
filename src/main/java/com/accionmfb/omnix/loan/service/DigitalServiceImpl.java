@@ -14,6 +14,7 @@ import com.accionmfb.omnix.loan.payload.DigitalLoanHistoryResponseList;
 import com.accionmfb.omnix.loan.repository.LoanRepository;
 import com.accionmfb.omnix.loan.repository.SmsRepository;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
@@ -1465,7 +1466,8 @@ public class DigitalServiceImpl implements DigitalService {
                     emailPayload.setRecipientName(customer.getLastName() + ", " + customer.getOtherName());
                     emailPayload.setRequestId(requestPayload.getRequestId());
                     emailPayload.setDisbursementAccount(loanRecord.getDisbursementAccount());
-                    emailPayload.setEmailSubject("Digital Loan Alert -  " + " " + loanRecord.getLoanDisbursementId() + " - " + customer.getLastName() + ", " + customer.getOtherName()+"/"+loanRecord.getLoanAmountApproved());emailPayload.setFailureReason("N/a");
+                    emailPayload.setEmailSubject("Digital Loan Alert -  " + " " + loanRecord.getLoanDisbursementId() + " - " + customer.getLastName() + ", " + customer.getOtherName() + "/" + loanRecord.getLoanAmountApproved());
+                    emailPayload.setFailureReason("N/a");
                     emailPayload.setLoanDisbursementId(loanDisbursed.getLoanDisbursementId());
                     emailPayload.setLoanAmount(String.valueOf(loanDisbursed.getLoanAmountApproved()));
                     emailPayload.setStatus("DISBURSED");
@@ -2113,7 +2115,7 @@ public class DigitalServiceImpl implements DigitalService {
 
         List<Account> accountRecord = loanRepository.getCustomerAccounts(customer);
         String t24Account = accountRecord.get(0).getOldAccountNumber();
-
+        log.info("T24 Account {}", t24Account);
 //        if (loanRecord != null) {
 //            Schedule scheduleUpdat = loanRepository.getScheduleByMonthAndId("1", loanRecord.getLoanId());
 //
@@ -2164,16 +2166,27 @@ public class DigitalServiceImpl implements DigitalService {
 
         //Active Loan T24
 
+        //Get Loan Record with Mobile Number
+        Loan loanRecord = loanRepository.getLoanUsingMobileNumber(requestPayload.getMobileNumber());
+        DigitalActiveLoanResponsePayload loanHistoryResponsePayload = new DigitalActiveLoanResponsePayload();
+        List<DigitalLoanHistoryResponseList> loanHistoryList = new ArrayList<>();
+        if (loanRecord != null) {
+            log.info("CHECK FIRST THAT LOAN IS LIQUIDATED {}", loanRecord.getStatus());
+            if (loanRecord.getStatus().equalsIgnoreCase("LIQUIDATED")) {
+                loanHistoryResponsePayload.setResponseCode(ResponseCodes.SUCCESS_CODE.getResponseCode());
+                loanHistoryResponsePayload.setResponseMessage("Loan Fully Liquidated");
+                loanHistoryResponsePayload.setExistingLoan(false);
+                loanHistoryResponsePayload.setLoanDetails(loanHistoryList);
+            }
+            return gson.toJson(loanHistoryResponsePayload);
+        }
+
 
         //call loan history from T24
         LoanBalanceResponsePayload ores = getLoanBalance(t24Account, token);
+
         // Check Active Loan in T24, Return Loan Does not exist otherwise as all Disbursed Loans are in the CBA
         if (ores != null) {
-            List<DigitalLoanHistoryResponseList> loanHistoryList = new ArrayList<>();
-            DigitalActiveLoanResponsePayload loanHistoryResponsePayload = new DigitalActiveLoanResponsePayload();
-
-            //Get Loan Record with Mobile Number
-            Loan loanRecord = loanRepository.getLoanUsingMobileNumber(customerNumber);
 
             PaystackCardDetails paystackCardDetails = new PaystackCardDetails();
             List<ScheduleResponsePayloadList> scheduleList = new ArrayList<>();
@@ -2226,13 +2239,14 @@ public class DigitalServiceImpl implements DigitalService {
                     loanHistory.setNarration(oLoanItemPayload.getNarration());
                     loanHistory.setLoanAmount(oLoanItemPayload.getLoanAmount());
                     loanHistory.setPastDueAmount(oLoanItemPayload.getPastDueAmount());
-
                     loanExist = true;
                     LocalDate currentDate = LocalDate.now();
                     if (schedule != null) {
                         List<Schedule> scheduleUpdate = new ArrayList<>();
                         Schedule schedule1 = new Schedule();
                         if (loanRecord != null) {
+                            log.info("LOAN STATUS HERE {}", loanRecord.getStatus());
+
                             //Get Schedule By repayment Date in order to get current schedule
                             scheduleUpdate = loanRepository.getScheduleByRepaymentDateAndLoanId(loanRecord.getLoanId(), currentDate);
                             //Get current schedule by month object
@@ -2249,7 +2263,6 @@ public class DigitalServiceImpl implements DigitalService {
                                     .skip(1)
                                     .findFirst()
                                     .orElse(null); // set to null if condition false
-                            log.info("Select Paid Schedule Stream {}", selectPaidSchedule);
 
                             if (selectPaidSchedule != null) {
                                 schedule1 = selectPaidSchedule;
@@ -2264,6 +2277,7 @@ public class DigitalServiceImpl implements DigitalService {
                         }
                     }
 
+
                     loanHistory.setScheduleList(scheduleList);
                     loanHistory.setCardDetails(paystackCardDetails);
                     loanHistoryList.add(loanHistory);
@@ -2274,8 +2288,8 @@ public class DigitalServiceImpl implements DigitalService {
             loanHistoryResponsePayload.setResponseMessage("Loan History");
             loanHistoryResponsePayload.setExistingLoan(loanExist);
             loanHistoryResponsePayload.setLoanDetails(loanHistoryList);
-
             return gson.toJson(loanHistoryResponsePayload);
+
         } else {
             //Log the error
             genericService.generateLog("Digital Loan History", token, messageSource.getMessage("appMessages.record.digital.loan.empty", new Object[0], Locale.ENGLISH), "API Response", "INFO", requestPayload.getRequestId());
@@ -2496,7 +2510,6 @@ public class DigitalServiceImpl implements DigitalService {
                 sResponse = sResponse.split("RESULT::RESULT,")[1];
                 List<String> rowList = Arrays.asList(sResponse.split(","));
                 oLoanItemDto = new LoanItemPayload[rowList.size()];
-                log.info("ROW LIST SIZE {}", rowList.size());
                 int k = 0;
                 for (String s : rowList) {
                     s = s.split("\\t")[0];
@@ -2630,11 +2643,30 @@ public class DigitalServiceImpl implements DigitalService {
     public String processEarlyRepayment(String token, EarlyRepaymentRequestPayload requestPayload) throws UnirestException, ParseException {
         EarlyRepaymentResponsePayload earlyRepaymentResponsePayload = new EarlyRepaymentResponsePayload();
         log.info("Early Repayment Request Payload {}", requestPayload);
+
+
+        //Check if Loan is fully repaid
+        Loan loanRecord= loanRepository.getLoanUsingLoanId(requestPayload.getLoanId());
+        if(loanRecord == null){
+            earlyRepaymentResponsePayload.setResponseCode("03");
+            earlyRepaymentResponsePayload.setResponseMessage("No Loan Record found for " + requestPayload.getLoanId());
+            log.info("Early Repayment Response Payload {}", gson.toJson(earlyRepaymentResponsePayload));
+            return gson.toJson(earlyRepaymentResponsePayload);
+        }
+        if(loanRecord.getStatus().equalsIgnoreCase("LIQUIDATED")){
+            earlyRepaymentResponsePayload.setResponseCode("00");
+            earlyRepaymentResponsePayload.setResponseMessage("The loan " + loanRecord.getLoanDisbursementId() +" has been LIQUIDATED. Kindly apply for a new loan");
+            log.info("Early Repayment Response Payload {}", gson.toJson(earlyRepaymentResponsePayload));
+            return gson.toJson(earlyRepaymentResponsePayload);
+        }
+
         LocalDate currentDate = LocalDate.now();
         List<Schedule> schedule = loanRepository.getScheduleByRepaymentDateAndLoanId(requestPayload.getLoanId(), currentDate);
+        //Check if schedule by current and status is not null
         if (schedule == null) {
             earlyRepaymentResponsePayload.setResponseCode("03");
-            earlyRepaymentResponsePayload.setResponseMessage("No Record found for " + requestPayload.getLoanId());
+            earlyRepaymentResponsePayload.setResponseMessage("No Schedule Record found for " + requestPayload.getLoanId());
+            log.info("Early Repayment Response Payload {}", gson.toJson(earlyRepaymentResponsePayload));
             return gson.toJson(earlyRepaymentResponsePayload);
         }
 
@@ -2716,13 +2748,17 @@ public class DigitalServiceImpl implements DigitalService {
                 schedule.get(0).setStatus("Paid");
             }
             loanRepository.updateSchedule(schedule.get(0));
-            earlyRepaymentResponsePayload.setResponseMessage(requestPayload.getAmount() + " has Successfully been Placed on Lien for Customer with Account " + schedule.get(0).getDisbursementAccount() + " for early repayment");
+            //call early liquidation and liquidate if loan fully paid
+            String liquidateLoanTemp = digitalService.processLiquidateLoanTemp(token, schedule.get(0).getLoanId());
+            LiquidateLoanResponsePayload liquidate = gson.fromJson(liquidateLoanTemp, LiquidateLoanResponsePayload.class);
+            earlyRepaymentResponsePayload.setResponseMessage(requestPayload.getAmount() + " has Successfully been Placed on Lien for Customer with Account " + schedule.get(0).getDisbursementAccount() + " for early repayment "+ liquidate.getResponseMessage());
             earlyRepaymentResponsePayload.setResponseCode("00");
+
         } else {
             earlyRepaymentResponsePayload.setResponseMessage(placeLien.getResponseMessage());
             earlyRepaymentResponsePayload.setResponseCode(ResponseCodes.FAILED_TRANSACTION.getResponseCode());
         }
-
+        log.info("Early Repayment Response Payload {}", gson.toJson(earlyRepaymentResponsePayload));
         return gson.toJson(earlyRepaymentResponsePayload);
     }
 
@@ -3020,9 +3056,6 @@ public class DigitalServiceImpl implements DigitalService {
     @Override
     public String processLiquidateLoanTemp(String token, String loanId) throws ParseException {
 
-        //Check Schedule status
-        List<Schedule> schedule = loanRepository.getSchedule(loanId);
-        Loan loanRecord = loanRepository.getLoanUsingLoanId(loanId);
         String userCredentials = jwtToken.getUserCredentialFromToken(token);
 
         String OFS = "LD.LOANS.AND.DEPOSITS,EARLY.MAT/I/PROCESS//1,";
@@ -3049,22 +3082,28 @@ public class DigitalServiceImpl implements DigitalService {
 //        OFS = OFS + ",FIN.MAT.DATE::=" + dateFormat.format(matDate);//20130326
 //        OFS = OFS + ",DRAWDOWN.ACCOUNT::=" + "1999200429";
 //        OFS = OFS + ",MODIFY.TRM::=" + "Got";
-        OFS = OFS + ",EARLY.MAT.REASN::=" + "Got enough Money";
+//        OFS = OFS + ",EARLY.MAT.REASN::=" + "Got enough Money";
+//
+//        String sResponse = genericService.postToT24(OFS);
+//        log.info("OFS REQUEST {}", OFS);
+//        log.info("OFS RESPONSE FOR EARLY MATURITY {}", sResponse);
 
-        String sResponse = genericService.postToT24(OFS);
-        log.info("OFS REQUEST {}", OFS);
-        log.info("OFS RESPONSE FOR EARLY MATURITY {}", sResponse);
+        //Check Schedule status
+        List<Schedule> schedule = loanRepository.getSchedule(loanId);
+        Loan loanRecord = loanRepository.getLoanUsingLoanId(loanId);
 
         LiquidateLoanResponsePayload liquidateLoan = new LiquidateLoanResponsePayload();
-
-        int lastStatus = schedule.size() - 1;
-        String status = String.valueOf(schedule.get(lastStatus));
-        if (status.equalsIgnoreCase("Paid")) {
+        int lastSchedule = schedule.size() - 1;
+        if (schedule.get(lastSchedule).getStatus().equalsIgnoreCase("Paid") && schedule.get(lastSchedule).getPastDueAmount().startsWith("0")) {
             loanRecord.setStatus("LIQUIDATED");
             loanRepository.updateLoan(loanRecord);
             liquidateLoan.setResponseCode(ResponseCodes.SUCCESS_CODE.getResponseCode());
             liquidateLoan.setResponseMessage("Loan Liquidated Successfully");
+        } else {
+            liquidateLoan.setResponseCode(ResponseCodes.INSUFFICIENT_BALANCE.getResponseCode());
+            liquidateLoan.setResponseMessage("Loan yet to be liquidated");
         }
-        return gson.toJson(sResponse);
+        log.info("RESPONSE FOR EARLY LIQUIDATION {}", gson.toJson(liquidateLoan));
+        return gson.toJson(liquidateLoan);
     }
 }
